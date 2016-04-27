@@ -3,11 +3,13 @@
   <Globals>
     <StorageProviders>
       <Provider Type="Orleans.StorageProviders.SimpleSQLServerStorage.SimpleSQLServerStorage" Name="PubSubStore"
-                ConnectionString="Data Source=(LocalDB)\v11.0;AttachDbFilename=.\PubSubStore.mdfIntegrated Security=True;"
+                ConnectionString="Data Source=(LocalDB)\v11.0;Initial catalog=xxx;Integrated Security=True;"
+                TableName="lllll"
                 UseJsonFormat="both" />
       
       <Provider Type="Orleans.StorageProviders.SimpleSQLServerStorage.SimpleSQLServerStorage" Name="basic"
-                ConnectionString="Data Source=(LocalDB)\v11.0;AttachDbFilename=.\basic.mdf;Integrated Security=True;"
+                ConnectionString="Data Source=(LocalDB)\v11.0;Initial catalog=yy;Integrated Security=True;"
+                TableName="lllll"
                 UseJsonFormat="both" />
     </StorageProviders>
 

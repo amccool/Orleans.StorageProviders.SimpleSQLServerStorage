@@ -74,16 +74,21 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="PubSubStoreTests.cs" />
     <Compile Include="GrainStorageTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="basic.mdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="ClientConfigurationForTesting.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="OrleansConfigurationForTesting.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="PubSubStore.mdf" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Orleans.StorageProviders.SimpleSQLServerStorage\Orleans.StorageProviders.SimpleSQLServerStorage.csproj">

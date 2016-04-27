@@ -17,14 +17,19 @@ namespace SimpleSQLServerStorage.Tests
     [DeploymentItem("OrleansProviders.dll")]
     [DeploymentItem("Orleans.StorageProviders.SimpleSQLServerStorage.dll")]
     [DeploymentItem("SimpleGrains.dll")]
-    [DeploymentItem("basic.mdf")]
+    [DeploymentItem("PubSubStore.mdf")]
     [TestClass]
-    public class GrainStorageTests : TestingSiloHost
+    public class PubSubStoreTests : TestCluster
     {
         private readonly TimeSpan timeout = Debugger.IsAttached ? TimeSpan.FromMinutes(5) : TimeSpan.FromSeconds(10);
 
-        public GrainStorageTests()
-            : base(new TestingSiloOptions
+        public PubSubStoreTests()
+            : base ( new TestClusterOptions(3)
+            {
+                 ClientConfiguration = { },
+                  ClusterConfiguration = { PrimaryNode }
+            }
+
             {
                 StartFreshOrleans = true,
                 SiloConfigFile = new FileInfo("OrleansConfigurationForTesting.xml"),
@@ -48,41 +53,27 @@ namespace SimpleSQLServerStorage.Tests
 
 
         [TestMethod]
-        public async Task TestMethodGetAGrainTest()
+        public void PubSubStoreTest()
         {
-            var g = GrainFactory.GetGrain<IMyGrain>(0);
-
-            await g.SaveSomething(1, "ff", Guid.NewGuid(), DateTime.Now, new int[] { 1, 2, 3, 4, 5 });
+            Assert.Inconclusive();
         }
-
-
 
         [TestMethod]
-        public async Task TestGrains()
+        public async Task StreamingPubSubStoreTest()
         {
-            var rnd = new Random();
-            var rndId1 = rnd.Next();
-            var rndId2 = rnd.Next();
+            var strmId = Guid.NewGuid();
 
+            var streamProv = GrainClient.GetStreamProvider("SMSProvider");
+            IAsyncStream<int> stream = streamProv.GetStream<int>(strmId, "test1");
 
-
-            // insert your grain test code here
-            var grain = GrainFactory.GetGrain<IMyGrain>(rndId1);
-
-            var thing4 = new DateTime();
-            var thing3 = Guid.NewGuid();
-            var thing1 = 1;
-            var thing2 = "ggggggggggggggggg";
-            var things = new List<int> { 5, 6, 7, 8, 9 };
-
-            await grain.SaveSomething(thing1, thing2, thing3, thing4, things);
-
-            Assert.AreEqual(thing1, await grain.GetThing1());
-            Assert.AreEqual(thing2, await grain.GetThing2());
-            Assert.AreEqual(thing3, await grain.GetThing3());
-            Assert.AreEqual(thing4, await grain.GetThing4());
-            var res = await grain.GetThings1();
-            CollectionAssert.AreEqual(things, res.ToList());
+            StreamSubscriptionHandle<int> handle = await stream.SubscribeAsync(
+                (e, t) => { return TaskDone.Done; },
+                e => { return TaskDone.Done; });
         }
+
+
+
+
+
     }
 }
