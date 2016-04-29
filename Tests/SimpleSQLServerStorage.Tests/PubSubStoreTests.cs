@@ -17,9 +17,9 @@ namespace SimpleSQLServerStorage.Tests
     [DeploymentItem("OrleansProviders.dll")]
     [DeploymentItem("Orleans.StorageProviders.SimpleSQLServerStorage.dll")]
     [DeploymentItem("SimpleGrains.dll")]
-    [DeploymentItem("basic.mdf")]
+    [DeploymentItem("PubSubStore.mdf")]
     [TestClass]
-    public class GrainStorageTests
+    public class PubSubStoreTests
     {
         public static TestingSiloHost testingHost;
 
@@ -43,10 +43,10 @@ namespace SimpleSQLServerStorage.Tests
 
                 AdjustConfig = config =>
                 {
-                    config.Globals.RegisterStorageProvider<Orleans.StorageProviders.SimpleSQLServerStorage.SimpleSQLServerStorage>(providerName: "basic", properties:
+                    config.Globals.RegisterStorageProvider<Orleans.StorageProviders.SimpleSQLServerStorage.SimpleSQLServerStorage>(providerName: "PubSubStore", properties:
                         new Dictionary<string, string>                        {
-                            { "ConnectionString" , string.Format(@"Data Source=(LocalDB)\v11.0;AttachDbFilename={0};Trusted_Connection=Yes", Path.Combine(context.DeploymentDirectory, "basic.mdf"))},
-                            { "TableName", "basic"},
+                            { "ConnectionString" , string.Format(@"Data Source=(LocalDB)\v11.0;AttachDbFilename={0};Trusted_Connection=Yes", Path.Combine(context.DeploymentDirectory, "PubSubStore.mdf"))},
+                            { "TableName", "lllll"},
                             { "UseJsonFormat", "both" }
                         });
                 }
@@ -69,41 +69,27 @@ namespace SimpleSQLServerStorage.Tests
 
 
         [TestMethod]
-        public async Task TestMethodGetAGrainTest()
+        public void PubSubStoreTest()
         {
-            var g = testingHost.GrainFactory.GetGrain<IMyGrain>(0);
-
-            await g.SaveSomething(1, "ff", Guid.NewGuid(), DateTime.Now, new int[] { 1, 2, 3, 4, 5 });
+            Assert.Inconclusive();
         }
-
-
 
         [TestMethod]
-        public async Task TestGrains()
+        public async Task StreamingPubSubStoreTest()
         {
-            var rnd = new Random();
-            var rndId1 = rnd.Next();
-            var rndId2 = rnd.Next();
+            var strmId = Guid.NewGuid();
 
+            var streamProv = GrainClient.GetStreamProvider("SMSProvider");
+            IAsyncStream<int> stream = streamProv.GetStream<int>(strmId, "test1");
 
-
-            // insert your grain test code here
-            var grain = testingHost.GrainFactory.GetGrain<IMyGrain>(rndId1);
-
-            var thing4 = new DateTime();
-            var thing3 = Guid.NewGuid();
-            var thing1 = 1;
-            var thing2 = "ggggggggggggggggg";
-            var things = new List<int> { 5, 6, 7, 8, 9 };
-
-            await grain.SaveSomething(thing1, thing2, thing3, thing4, things);
-
-            Assert.AreEqual(thing1, await grain.GetThing1());
-            Assert.AreEqual(thing2, await grain.GetThing2());
-            Assert.AreEqual(thing3, await grain.GetThing3());
-            Assert.AreEqual(thing4, await grain.GetThing4());
-            var res = await grain.GetThings1();
-            CollectionAssert.AreEqual(things, res.ToList());
+            StreamSubscriptionHandle<int> handle = await stream.SubscribeAsync(
+                (e, t) => { return TaskDone.Done; },
+                e => { return TaskDone.Done; });
         }
+
+
+
+
+
     }
 }
