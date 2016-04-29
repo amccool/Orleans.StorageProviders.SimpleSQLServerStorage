@@ -88,7 +88,9 @@
     <Content Include="OrleansConfigurationForTesting.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="PubSubStore.mdf" />
+    <Content Include="PubSubStore.mdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Orleans.StorageProviders.SimpleSQLServerStorage\Orleans.StorageProviders.SimpleSQLServerStorage.csproj">
