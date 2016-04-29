@@ -19,61 +19,23 @@ namespace SimpleSQLServerStorage.Tests
     [DeploymentItem("SimpleGrains.dll")]
     [DeploymentItem("PubSubStore.mdf")]
     [TestClass]
-    public class PubSubStoreTests //: TestingSiloHost
+    public class PubSubStoreTests
     {
         public static TestingSiloHost testingHost;
-
 
         private readonly TimeSpan timeout = Debugger.IsAttached ? TimeSpan.FromMinutes(5) : TimeSpan.FromSeconds(10);
 
         private TestContext testContextInstance;
-        /// <summary>
-        ///Gets or sets the test context which provides
-        ///information about and functionality for the current test run.
-        ///</summary>
+
         public TestContext TestContext
         {
             get { return testContextInstance; }
             set { testContextInstance = value; }
         }
 
-        //public PubSubStoreTests()
-        //    : base(new TestingSiloOptions
-        //    {
-        //        SiloConfigFile = new FileInfo("OrleansConfigurationForTesting.xml"),
-        //        StartFreshOrleans = true,
-
-        //        AdjustConfig = config =>
-        //        {
-
-        //            config.Globals.RegisterStorageProvider<Orleans.StorageProviders.SimpleSQLServerStorage.SimpleSQLServerStorage>(providerName: "PubSubStore", properties:
-        //                new Dictionary<string, string>                        {
-        //                    //{ "ConnectionString" , @"Data Source=(LocalDB)\v11.0;AttachDbFilename=|DataDirectory|\PubSubStore.mdf;Trusted_Connection=Yes" },
-        //                    { "ConnectionString" , string.Format(@"Data Source=(LocalDB)\v11.0;AttachDbFilename={0}\PubSubStore.mdf;Trusted_Connection=Yes",
-        //                    TestContext.DeploymentDirectory)},
-        //                    { "TableName", "lllll"},
-        //                    { "UseJsonFormat", "both" }
-        //                });
-
-        //            //config.Globals.ServiceId = serviceId;
-        //        }
-
-
-        //    },
-        //    new TestingClientOptions()
-        //    {
-        //        ClientConfigFile = new FileInfo("ClientConfigurationForTesting.xml")
-        //    })
-        //{}
-
         [ClassInitialize]
         public static void SetUp(TestContext context)
         {
-            AppDomain.CurrentDomain.SetData(
-                "DataDirectory",
-                context.TestDeploymentDir);
-
-
             testingHost = new TestingSiloHost(new TestingSiloOptions
             {
                 SiloConfigFile = new FileInfo("OrleansConfigurationForTesting.xml"),
@@ -81,37 +43,28 @@ namespace SimpleSQLServerStorage.Tests
 
                 AdjustConfig = config =>
                 {
-
                     config.Globals.RegisterStorageProvider<Orleans.StorageProviders.SimpleSQLServerStorage.SimpleSQLServerStorage>(providerName: "PubSubStore", properties:
                         new Dictionary<string, string>                        {
-                            //{ "ConnectionString" , @"Data Source=(LocalDB)\v11.0;AttachDbFilename=|DataDirectory|\PubSubStore.mdf;Trusted_Connection=Yes" },
                             { "ConnectionString" , string.Format(@"Data Source=(LocalDB)\v11.0;AttachDbFilename={0};Trusted_Connection=Yes", Path.Combine(context.DeploymentDirectory, "PubSubStore.mdf"))},
                             { "TableName", "lllll"},
                             { "UseJsonFormat", "both" }
                         });
-
-                    //config.Globals.ServiceId = serviceId;
                 }
-
-
             },
             new TestingClientOptions()
             {
                 ClientConfigFile = new FileInfo("ClientConfigurationForTesting.xml")
             });
-
-
-
         }
 
-        //[ClassCleanup]
-        //public static void ClassCleanup()
-        //{
-        //    // Optional. 
-        //    // By default, the next test class which uses TestignSiloHost will
-        //    // cause a fresh Orleans silo environment to be created.
-        //    StopAllSilos();
-        //}
+        [ClassCleanup]
+        public static void ClassCleanup()
+        {
+            // Optional. 
+            // By default, the next test class which uses TestignSiloHost will
+            // cause a fresh Orleans silo environment to be created.
+            testingHost.StopAllSilos();
+        }
 
 
 

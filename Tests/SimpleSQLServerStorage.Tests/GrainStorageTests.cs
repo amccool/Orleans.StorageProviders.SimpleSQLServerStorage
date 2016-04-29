@@ -19,38 +19,59 @@ namespace SimpleSQLServerStorage.Tests
     [DeploymentItem("SimpleGrains.dll")]
     [DeploymentItem("basic.mdf")]
     [TestClass]
-    public class GrainStorageTests : TestingSiloHost
+    public class GrainStorageTests
     {
+        public static TestingSiloHost testingHost;
+
         private readonly TimeSpan timeout = Debugger.IsAttached ? TimeSpan.FromMinutes(5) : TimeSpan.FromSeconds(10);
 
-        public GrainStorageTests()
-            : base(new TestingSiloOptions
+        private TestContext testContextInstance;
+
+        public TestContext TestContext
+        {
+            get { return testContextInstance; }
+            set { testContextInstance = value; }
+        }
+
+        [ClassInitialize]
+        public static void SetUp(TestContext context)
+        {
+            testingHost = new TestingSiloHost(new TestingSiloOptions
             {
-                StartFreshOrleans = true,
                 SiloConfigFile = new FileInfo("OrleansConfigurationForTesting.xml"),
+                StartFreshOrleans = true,
+
+                AdjustConfig = config =>
+                {
+                    config.Globals.RegisterStorageProvider<Orleans.StorageProviders.SimpleSQLServerStorage.SimpleSQLServerStorage>(providerName: "basic", properties:
+                        new Dictionary<string, string>                        {
+                            { "ConnectionString" , string.Format(@"Data Source=(LocalDB)\v11.0;AttachDbFilename={0};Trusted_Connection=Yes", Path.Combine(context.DeploymentDirectory, "basic.mdf"))},
+                            { "TableName", "basic"},
+                            { "UseJsonFormat", "both" }
+                        });
+                }
             },
             new TestingClientOptions()
             {
                 ClientConfigFile = new FileInfo("ClientConfigurationForTesting.xml")
-            })
-        {
+            });
         }
 
-        //[ClassCleanup]
-        //public static void ClassCleanup()
-        //{
-        //    // Optional. 
-        //    // By default, the next test class which uses TestignSiloHost will
-        //    // cause a fresh Orleans silo environment to be created.
-        //    StopAllSilos();
-        //}
+        [ClassCleanup]
+        public static void ClassCleanup()
+        {
+            // Optional. 
+            // By default, the next test class which uses TestignSiloHost will
+            // cause a fresh Orleans silo environment to be created.
+            testingHost.StopAllSilos();
+        }
 
 
 
         [TestMethod]
         public async Task TestMethodGetAGrainTest()
         {
-            var g = GrainFactory.GetGrain<IMyGrain>(0);
+            var g = testingHost.GrainFactory.GetGrain<IMyGrain>(0);
 
             await g.SaveSomething(1, "ff", Guid.NewGuid(), DateTime.Now, new int[] { 1, 2, 3, 4, 5 });
         }
@@ -67,7 +88,7 @@ namespace SimpleSQLServerStorage.Tests
 
 
             // insert your grain test code here
-            var grain = GrainFactory.GetGrain<IMyGrain>(rndId1);
+            var grain = testingHost.GrainFactory.GetGrain<IMyGrain>(rndId1);
 
             var thing4 = new DateTime();
             var thing3 = Guid.NewGuid();
