@@ -50,7 +50,7 @@ namespace SimpleSQLServerStorage.Tests
                 {
                     config.Globals.RegisterStorageProvider<Orleans.StorageProviders.SimpleSQLServerStorage.SimpleSQLServerStorage>(providerName: "PubSubStore", properties:
                         new Dictionary<string, string>                        {
-                            { "ConnectionString" , string.Format(@"Data Source=(LocalDB)\v11.0;AttachDbFilename={0};Trusted_Connection=Yes", Path.Combine(context.DeploymentDirectory, "PubSubStore.mdf"))},
+                            { "ConnectionString" , string.Format(@"Data Source=(localdb)\MSSQLLocalDB;AttachDbFilename={0};Trusted_Connection=Yes", Path.Combine(context.DeploymentDirectory, "PubSubStore.mdf"))},
                             { "TableName", "lllll"},
                             { "UseJsonFormat", "both" }
                         });
