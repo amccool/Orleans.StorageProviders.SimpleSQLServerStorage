@@ -17,7 +17,7 @@ namespace SimpleSQLServerStorage.Tests
     [DeploymentItem("OrleansProviders.dll")]
     [DeploymentItem("Orleans.StorageProviders.SimpleSQLServerStorage.dll")]
     [DeploymentItem("SimpleGrains.dll")]
-    [DeploymentItem("basic.mdf")]
+    // EF is creating this file for us     [DeploymentItem("basic.mdf")]
     [TestClass]
     public class GrainStorageTests
     {

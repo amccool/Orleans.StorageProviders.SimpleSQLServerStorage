@@ -19,7 +19,7 @@ namespace SimpleSQLServerStorage.Tests
     [DeploymentItem("OrleansProviders.dll")]
     [DeploymentItem("Orleans.StorageProviders.SimpleSQLServerStorage.dll")]
     [DeploymentItem("SimpleGrains.dll")]
-    [DeploymentItem("PubSubStore.mdf")]
+    // EF is creating this file for us [DeploymentItem("PubSubStore.mdf")]
     [TestClass]
     public class PubSubStoreTests
     {
