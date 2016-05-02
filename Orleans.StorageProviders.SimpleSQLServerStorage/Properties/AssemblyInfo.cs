@@ -6,13 +6,13 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("Orleans.StorageProviders.SimpleSQLServerStorage")]
-[assembly: AssemblyDescription("")]
-[assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyDescription("A KeyValue SQLServer implementation of the Orleans Storage Provider model")]
+//[assembly: AssemblyConfiguration("")]
+[assembly: AssemblyCompany("OrleansContrib")]
 [assembly: AssemblyProduct("Orleans.StorageProviders.SimpleSQLServerStorage")]
-[assembly: AssemblyCopyright("Copyright ©  2016")]
-[assembly: AssemblyTrademark("")]
-[assembly: AssemblyCulture("")]
+[assembly: AssemblyCopyright("Copyright ©2016")]
+//[assembly: AssemblyTrademark("")]
+//[assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 
@@ -34,3 +34,4 @@ using System.Runtime.InteropServices;
 // [assembly: AssemblyVersion("1.0.*")]
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyInformationalVersion("1.0.0.0")]
