@@ -105,5 +105,37 @@ namespace SimpleSQLServerStorage.Tests
             var res = await grain.GetThings1();
             CollectionAssert.AreEqual(things, res.ToList());
         }
+
+
+
+        [TestMethod]
+        public async Task StateTestGrainTest()
+        {
+            var rnd = new Random();
+            var rndId1 = rnd.Next();
+            var rndId2 = rnd.Next();
+
+
+
+            // insert your grain test code here
+            var grain = testingHost.GrainFactory.GetGrain<IStateTestGrain>(rndId1);
+
+            var thing4 = new DateTime();
+            var thing3 = Guid.NewGuid();
+            var thing1 = 1;
+            var thing2 = "ggggggggggggggggg";
+            var things = new List<int> { 5, 6, 7, 8, 9 };
+
+            await grain.SaveSomething(thing1, thing2, thing3, thing4, things);
+
+            Assert.AreEqual(thing1, await grain.GetThing1());
+            Assert.AreEqual(thing2, await grain.GetThing2());
+            Assert.AreEqual(thing3, await grain.GetThing3());
+            Assert.AreEqual(thing4, await grain.GetThing4());
+            var res = await grain.GetThings1();
+            CollectionAssert.AreEqual(things, res.ToList());
+        }
+
+
     }
 }

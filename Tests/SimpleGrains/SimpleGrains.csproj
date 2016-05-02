@@ -70,6 +70,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="StateTest.cs" />
+    <Compile Include="StateTestGrain.cs" />
     <Compile Include="MyGrain.cs" />
     <Compile Include="MyGrainState.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -70,6 +70,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="IStateTestGrain.cs" />
     <Compile Include="IMyGrain.cs" />
     <Compile Include="IStreamerOutGrain.cs" />
     <Compile Include="IStreamerInGrain.cs" />
