@@ -5,6 +5,7 @@ using SimpleGrainInterfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -95,5 +96,20 @@ namespace SimpleGrains
             State.Things1 = v;
             return this.WriteStateAsync();
         }
+
+        public Task<IPAddress> GetIpAddr()
+        {
+            this.ReadStateAsync();
+            return Task.FromResult(this.State.ipaddr);
+        }
+
+        public Task SetIpAddr(IPAddress v)
+        {
+            State.ipaddr = v;
+            return this.WriteStateAsync();
+        }
+
+
+
     }
 }

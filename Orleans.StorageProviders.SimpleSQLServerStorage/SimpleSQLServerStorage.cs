@@ -3,16 +3,12 @@ using Orleans.Providers;
 using Orleans.Runtime;
 using Orleans.Storage;
 using System;
-using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Data.Entity;
 using Orleans.Serialization;
-using System.Data.Entity.Core.Objects;
 using System.Data.Entity.Migrations;
-using System.Data.Entity.Validation;
 
 namespace Orleans.StorageProviders.SimpleSQLServerStorage
 {
@@ -46,59 +42,49 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
         /// <see cref="IProvider#Init"/>
         public async Task Init(string name, IProviderRuntime providerRuntime, IProviderConfiguration config)
         {
-            Name = name;
             serviceId = providerRuntime.ServiceId.ToString();
-
-            if (!config.Properties.ContainsKey(CONNECTION_STRING) ||
-                string.IsNullOrWhiteSpace(config.Properties[CONNECTION_STRING]))
-            {
-                throw new ArgumentException("Specify a value for:", CONNECTION_STRING);
-            }
-            var connectionString = config.Properties[CONNECTION_STRING];
-            sqlconnBuilder = new SqlConnectionStringBuilder(connectionString);
-
-            //a validation of the connection would be wise to perform here
-            //await new SqlConnection(sqlconnBuilder.ConnectionString).OpenAsync();
-
-            //initialize to use the default of JSON storage (this is to provide backwards compatiblity with previous version
-            useJsonOrBinaryFormat = StorageFormatEnum.Binary;
-
-            if (config.Properties.ContainsKey(USE_JSON_FORMAT_PROPERTY))
-            {
-                if ("true".Equals(config.Properties[USE_JSON_FORMAT_PROPERTY], StringComparison.OrdinalIgnoreCase))
-                    useJsonOrBinaryFormat = StorageFormatEnum.Json;
-
-                if ("both".Equals(config.Properties[USE_JSON_FORMAT_PROPERTY], StringComparison.OrdinalIgnoreCase))
-                    useJsonOrBinaryFormat = StorageFormatEnum.Both;
-            }
-
-            jsonSettings = new Newtonsoft.Json.JsonSerializerSettings()
-            {
-                TypeNameHandling = TypeNameHandling.All,
-                PreserveReferencesHandling = PreserveReferencesHandling.Objects,
-                DateFormatHandling = DateFormatHandling.IsoDateFormat,
-                DefaultValueHandling = DefaultValueHandling.Ignore,
-                MissingMemberHandling = MissingMemberHandling.Ignore,
-                NullValueHandling = NullValueHandling.Ignore,
-                ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor
-            };
-
             Log = providerRuntime.GetLogger("StorageProvider.SimpleSQLServerStorage." + serviceId);
-        }
 
-        // Internal method to initialize for testing
-        internal void InitLogger(Logger logger)
-        {
-            Log = logger;
+            try
+            {
+                Name = name;
+                this.jsonSettings = SerializationManager.UpdateSerializerSettings(SerializationManager.GetDefaultJsonSerializerSettings(), config);
+
+                if (!config.Properties.ContainsKey(CONNECTION_STRING) || string.IsNullOrWhiteSpace(config.Properties[CONNECTION_STRING]))
+                {
+                    throw new BadProviderConfigException($"Specify a value for: {CONNECTION_STRING}");
+                }
+                var connectionString = config.Properties[CONNECTION_STRING];
+                sqlconnBuilder = new SqlConnectionStringBuilder(connectionString);
+
+                //a validation of the connection would be wise to perform here
+                var sqlCon = new SqlConnection(sqlconnBuilder.ConnectionString);
+                await sqlCon.OpenAsync();
+                sqlCon.Close();
+
+                //initialize to use the default of JSON storage (this is to provide backwards compatiblity with previous version
+                useJsonOrBinaryFormat = StorageFormatEnum.Binary;
+
+                if (config.Properties.ContainsKey(USE_JSON_FORMAT_PROPERTY))
+                {
+                    if ("true".Equals(config.Properties[USE_JSON_FORMAT_PROPERTY], StringComparison.OrdinalIgnoreCase))
+                        useJsonOrBinaryFormat = StorageFormatEnum.Json;
+
+                    if ("both".Equals(config.Properties[USE_JSON_FORMAT_PROPERTY], StringComparison.OrdinalIgnoreCase))
+                        useJsonOrBinaryFormat = StorageFormatEnum.Both;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvider_InitProvider, ex.ToString(), ex);
+                throw;
+            }
         }
 
         /// <summary> Shutdown this storage provider. </summary>
         /// <see cref="IStorageProvider#Close"/>
-        public Task Close()
-        {
-            //the using of the dbContext of the async methods finally should be disposing the connection
-            return TaskDone.Done;
-        }
+        public async Task Close()
+        { }
 
         /// <summary> Read state data function for this storage provider. </summary>
         /// <see cref="IStorageProvider#ReadStateAsync"/>
@@ -108,57 +94,53 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
 
             if (Log.IsVerbose3)
             {
-                Log.Verbose3((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvide_ReadingData,
-                    "Reading: GrainType={0} Pk={1} Grainid={2} from DataSource={3}",
-                    grainType, primaryKey, grainReference, this.sqlconnBuilder.DataSource + "." + this.sqlconnBuilder.InitialCatalog);
+                Log.Verbose3((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvider_ReadingData,
+                    $"Reading: GrainType={grainType} Pk={primaryKey} Grainid={grainReference} from DataSource={this.sqlconnBuilder.DataSource + "." + this.sqlconnBuilder.InitialCatalog}");
             }
 
-            //var data = new Dictionary<string, object>();
-
-            using (var db = new KeyValueDbContext(this.sqlconnBuilder.ConnectionString))
+            try
             {
-                switch (this.useJsonOrBinaryFormat)
+                using (var db = new KeyValueDbContext(this.sqlconnBuilder.ConnectionString))
                 {
-                    case StorageFormatEnum.Binary:
-                    case StorageFormatEnum.Both:
-                        {
-                            var value = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => s.BinaryContent).SingleOrDefaultAsync();
-                            if (value != null)
+                    switch (this.useJsonOrBinaryFormat)
+                    {
+                        case StorageFormatEnum.Binary:
+                        case StorageFormatEnum.Both:
                             {
-                                //data = SerializationManager.DeserializeFromByteArray<Dictionary<string, object>>(value);
-                                grainState.State = SerializationManager.DeserializeFromByteArray<object>(value);
+                                var value = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => s.BinaryContent).SingleOrDefaultAsync();
+                                if (value != null)
+                                {
+                                    //data = SerializationManager.DeserializeFromByteArray<Dictionary<string, object>>(value);
+                                    grainState.State = SerializationManager.DeserializeFromByteArray<object>(value);
+                                }
                             }
-                        }
-                        break;
-                    case StorageFormatEnum.Json:
-                        {
-                            var value = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => s.JsonContext).SingleOrDefaultAsync();
-                            if (!string.IsNullOrEmpty(value))
+                            break;
+                        case StorageFormatEnum.Json:
                             {
-                                //data = JsonConvert.DeserializeObject<Dictionary<string, object>>(value, jsonSettings);
-                                grainState.State = JsonConvert.DeserializeObject(value, grainState.State.GetType(), jsonSettings);
+                                var value = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => s.JsonContext).SingleOrDefaultAsync();
+                                if (!string.IsNullOrEmpty(value))
+                                {
+                                    //data = JsonConvert.DeserializeObject<Dictionary<string, object>>(value, jsonSettings);
+                                    grainState.State = JsonConvert.DeserializeObject(value, grainState.State.GetType(), jsonSettings);
+                                }
                             }
-                        }
-                        break;
-                    default:
-                        break;
+                            break;
+                        default:
+                            break;
+                    }
                 }
+
+                grainState.ETag = Guid.NewGuid().ToString();
             }
-            //grainState.SetAll(data);
+            catch (Exception ex)
+            {
+                Log.Error((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvider_ReadError,
+                    $"Error reading: GrainType={grainType} Grainid={grainReference} ETag={grainState.ETag} from DataSource={this.sqlconnBuilder.DataSource + "." + this.sqlconnBuilder.InitialCatalog}",
+                    ex);
+                throw;
+            }
 
-            grainState.ETag = Guid.NewGuid().ToString();
         }
-
-
-
-
-
-
-
-
-
-
-
 
 
         /// <summary> Write state data function for this storage provider. </summary>
@@ -168,57 +150,45 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
             var primaryKey = grainReference.ToKeyString();
             if (Log.IsVerbose3)
             {
-                Log.Verbose3((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvide_WritingData,
-                    "Writing: GrainType={0} PrimaryKey={1} Grainid={2} ETag={3} to DataSource={4}",
-                    grainType, primaryKey, grainReference, grainState.ETag, this.sqlconnBuilder.DataSource + "." + this.sqlconnBuilder.InitialCatalog);
+                Log.Verbose3((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvider_WritingData,
+                    $"Writing: GrainType={grainType} PrimaryKey={primaryKey} GrainId={grainReference} ETag={grainState.ETag} to DataSource={this.sqlconnBuilder.DataSource + "." + this.sqlconnBuilder.InitialCatalog}");
             }
-            //var data = grainState.AsDictionary();
-            var data = grainState.State;
-
-            byte[] payload = null;
-            string jsonpayload = string.Empty;
-
-            if (this.useJsonOrBinaryFormat != StorageFormatEnum.Json)
-            {
-                payload = SerializationManager.SerializeToByteArray(data);
-            }
-
-            if (this.useJsonOrBinaryFormat == StorageFormatEnum.Json || this.useJsonOrBinaryFormat == StorageFormatEnum.Both)
-            {
-                jsonpayload = JsonConvert.SerializeObject(data, jsonSettings);
-            }
-
-
-            //await redisDatabase.StringSetAsync(primaryKey, json);
-            var kvb = new KeyValueStore()
-            {
-                JsonContext = jsonpayload,
-                BinaryContent = payload,
-                GrainKeyId = primaryKey,
-            };
             try
             {
+                var data = grainState.State;
+
+                byte[] payload = null;
+                string jsonpayload = string.Empty;
+
+                if (this.useJsonOrBinaryFormat != StorageFormatEnum.Json)
+                {
+                    payload = SerializationManager.SerializeToByteArray(data);
+                }
+
+                if (this.useJsonOrBinaryFormat == StorageFormatEnum.Json || this.useJsonOrBinaryFormat == StorageFormatEnum.Both)
+                {
+                    jsonpayload = JsonConvert.SerializeObject(data, jsonSettings);
+                }
+
+                //we really need to be writing an Etag to the db as well
+                var kvb = new KeyValueStore()
+                {
+                    JsonContext = jsonpayload,
+                    BinaryContent = payload,
+                    GrainKeyId = primaryKey,
+                };
+
                 using (var db = new KeyValueDbContext(this.sqlconnBuilder.ConnectionString))
                 {
                     db.Set<KeyValueStore>().AddOrUpdate(kvb);
                     await db.SaveChangesAsync();
                 }
             }
-            catch (DbEntityValidationException dbEx)
-            {
-                Log.Error(0, "Failed to WriteState", dbEx);
-                foreach (var entityValidationErrors in dbEx.EntityValidationErrors)
-                {
-                    foreach (var dbValidationError in entityValidationErrors.ValidationErrors)
-                    {
-                        Log.Warn(0, "PropertyName: {0} ErrorMessage: {1}", dbValidationError.PropertyName, dbValidationError.ErrorMessage);
-                    }
-                }
-                throw;
-            }
             catch (Exception ex)
             {
-                Log.Error(0, "Failed to WriteState", ex);
+                Log.Error((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvider_WriteError,
+                    $"Error writing: GrainType={grainType} GrainId={grainReference} ETag={grainState.ETag} to DataSource={this.sqlconnBuilder.DataSource + "." + this.sqlconnBuilder.InitialCatalog}",
+                    ex);
                 throw;
             }
         }
@@ -230,13 +200,14 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
         public async Task ClearStateAsync(string grainType, GrainReference grainReference, IGrainState grainState)
         {
             var primaryKey = grainReference.ToKeyString();
-            if (Log.IsVerbose3)
-            {
-                Log.Verbose3((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerStorageProvider_ClearingData,
-                    $"Clearing: GrainType={grainType} Pk={primaryKey} Grainid={grainReference} ETag={grainState.ETag} from DataSource={this.sqlconnBuilder.DataSource} Catalog={this.sqlconnBuilder.InitialCatalog}");
-            }
+
             try
             {
+                if (Log.IsVerbose3)
+                {
+                    Log.Verbose3((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerStorageProvider_ClearingData,
+                        $"Clearing: GrainType={grainType} Pk={primaryKey} Grainid={grainReference} ETag={grainState.ETag} from DataSource={this.sqlconnBuilder.DataSource} Catalog={this.sqlconnBuilder.InitialCatalog}");
+                }
                 var entity = new KeyValueStore() { GrainKeyId = primaryKey };
                 using (var db = new KeyValueDbContext(this.sqlconnBuilder.ConnectionString))
                 {
@@ -244,10 +215,14 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                     db.KeyValues.Remove(entity);
                     await db.SaveChangesAsync();
                 }
+
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                this.Log.Error(0, "failed to attach and remove entity", ex);
+                Log.Error((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvider_DeleteError,
+                  $"Error clearing: GrainType={grainType} GrainId={grainReference} ETag={grainState.ETag} in to DataSource={this.sqlconnBuilder.DataSource + "." + this.sqlconnBuilder.InitialCatalog}",
+                  ex);
+
                 throw;
             }
         }

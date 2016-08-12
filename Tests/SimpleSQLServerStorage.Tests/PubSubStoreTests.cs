@@ -14,18 +14,17 @@ using Orleans.Runtime.Configuration;
 using Xunit;
 using Xunit.Abstractions;
 using Orleans.StorageProviders.SimpleSQLServerStorage;
+using System.Data.SqlLocalDb;
+using System.Data.SqlClient;
 
 namespace SimpleSQLServerStorage.Tests
 {
-    //[DeploymentItem("ClientConfigurationForTesting.xml")]
-    //[DeploymentItem("OrleansConfigurationForTesting.xml")]
-    //[DeploymentItem("OrleansProviders.dll")]
-    //[DeploymentItem("Orleans.StorageProviders.SimpleSQLServerStorage.dll")]
-    //[DeploymentItem("SimpleGrains.dll")]
-    //// EF is creating this file for us [DeploymentItem("PubSubStore.mdf")]
-    //[TestClass]
-    public class PubSubStoreTests : TestClusterPerTest, IDisposable
+    public class PubSubStoreTests : TestClusterPerTestInitializeAfterConstructor, IDisposable
     {
+        private readonly string dbInstanceName;
+        private readonly ISqlLocalDbInstance instance;
+        private readonly Dictionary<string, string> dbNames;
+
         private static readonly string StreamProviderName = "sms";
 
         #region Orleans Stuff
@@ -37,6 +36,22 @@ namespace SimpleSQLServerStorage.Tests
         public PubSubStoreTests(ITestOutputHelper output) : base()
         {
             this.output = output;
+
+            var rnd = new Random();
+
+            dbNames = new Dictionary<string, string>()
+            {
+                { "PubSubStore", rnd.Next().ToString() },
+            };
+
+            dbInstanceName = rnd.Next().ToString();
+
+            ISqlLocalDbProvider provider = new SqlLocalDbProvider();
+            instance = provider.GetOrCreateInstance(dbInstanceName);
+
+            instance.Start();
+
+            Initialize();
         }
 
         #region IDisposable Support
@@ -53,6 +68,10 @@ namespace SimpleSQLServerStorage.Tests
                     // By default, the next test class which uses TestignSiloHost will
                     // cause a fresh Orleans silo environment to be created.
                     this.HostedCluster.StopAllSilos();
+
+                    instance.Stop();
+                    ISqlLocalDbApi localDB = new SqlLocalDbApiWrapper();
+                    localDB.DeleteInstance(instance.Name);
 
                 }
 
@@ -86,10 +105,27 @@ namespace SimpleSQLServerStorage.Tests
             var options = new TestClusterOptions();
 
             options.ClientConfiguration.AddSimpleMessageStreamProvider(StreamProviderName, false);
-
-            options.ClusterConfiguration.AddSimpleSQLStorageProvider("PubSubStore",
-                string.Format(@"Data Source=(localdb)\MSSQLLocalDB;AttachDbFilename={0};Trusted_Connection=Yes", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "PubSubStore.mdf")), "true");
             options.ClusterConfiguration.AddSimpleMessageStreamProvider(StreamProviderName, false);
+
+
+            foreach (var item in dbNames)
+            {
+                string actualDBName = item.Value;
+                string dbName = item.Key;
+                using (SqlConnection connection = instance.CreateConnection())
+                {
+                    connection.Open();
+                    using (SqlCommand command = new SqlCommand($"create database [{actualDBName}]", connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+                }
+                var sbuilder = instance.CreateConnectionStringBuilder();
+                sbuilder.SetInitialCatalogName(actualDBName);
+
+                options.ClusterConfiguration.AddSimpleSQLStorageProvider(dbName, sbuilder.ConnectionString, "true");
+            }
+
 
             return new TestCluster(options);
         }
