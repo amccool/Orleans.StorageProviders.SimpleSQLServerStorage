@@ -1,6 +1,7 @@
 ﻿using Orleans;
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading.Tasks;
 
 namespace SimpleGrainInterfaces
@@ -24,6 +25,10 @@ namespace SimpleGrainInterfaces
         Task SetThings1(IEnumerable<int> v);
 
         Task ClearTheState();
+
+        Task<IPAddress> GetIpAddr();
+        Task SetIpAddr(IPAddress v);
+
 
     }
 }

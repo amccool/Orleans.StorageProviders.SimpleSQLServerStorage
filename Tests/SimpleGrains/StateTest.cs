@@ -4,6 +4,7 @@ using SimpleGrainInterfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -17,5 +18,6 @@ namespace SimpleGrains
         public Guid Thing3 { get; set; }
         public DateTime Thing4 { get; set; }
         public IEnumerable<int> Things1 { get; set; }
+        public IPAddress ipaddr { get; set; }
     }
 }

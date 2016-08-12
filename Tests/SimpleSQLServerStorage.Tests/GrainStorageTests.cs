@@ -15,18 +15,19 @@ using Xunit;
 using SimpleGrains;
 using System.Globalization;
 using Orleans.StorageProviders.SimpleSQLServerStorage;
+using System.Data.SqlLocalDb;
+using System.Data.SqlClient;
+using System.Net;
 
 namespace SimpleSQLServerStorage.Tests
 {
-    //[DeploymentItem("ClientConfigurationForTesting.xml")]
-    //[DeploymentItem("OrleansConfigurationForTesting.xml")]
-    //[DeploymentItem("OrleansProviders.dll")]
-    //[DeploymentItem("Orleans.StorageProviders.SimpleSQLServerStorage.dll")]
-    //[DeploymentItem("SimpleGrains.dll")]
-    //// EF is creating this file for us     [DeploymentItem("basic.mdf")]
-    //[TestClass]
-    public class GrainStorageTests : TestClusterPerTest, IDisposable
+    public class GrainStorageTests : TestClusterPerTestInitializeAfterConstructor, IDisposable
     {
+        private readonly string dbInstanceName;
+        private readonly ISqlLocalDbInstance instance;
+        private readonly Dictionary<string, string> dbNames;
+
+
         private readonly double timingFactor;
 
         #region Orleans Stuff
@@ -41,8 +42,22 @@ namespace SimpleSQLServerStorage.Tests
 
             this.output = output;
 
-            //testingCluster = CreateTestCluster();
-            //testingCluster.Deploy();
+            var rnd = new Random();
+
+            dbNames = new Dictionary<string, string>()
+            {
+                { "basic", rnd.Next().ToString() },
+                { "SimpleSQLStore", rnd.Next().ToString() },
+        };
+
+            dbInstanceName = rnd.Next().ToString();
+
+            ISqlLocalDbProvider provider = new SqlLocalDbProvider();
+            instance = provider.GetOrCreateInstance(dbInstanceName);
+
+            instance.Start();
+
+            Initialize();
         }
 
 
@@ -61,6 +76,12 @@ namespace SimpleSQLServerStorage.Tests
                     // By default, the next test class which uses TestignSiloHost will
                     // cause a fresh Orleans silo environment to be created.
                     this.HostedCluster.StopAllSilos();
+
+
+                    instance.Stop();
+                    ISqlLocalDbApi localDB = new SqlLocalDbApiWrapper();
+                    localDB.DeleteInstance(instance.Name);
+
 
                 }
 
@@ -92,14 +113,29 @@ namespace SimpleSQLServerStorage.Tests
         {
             var options = new TestClusterOptions();
 
+            foreach (var item in dbNames)
+            {
+                string actualDBName = item.Value;
+                string dbName = item.Key;
+                using (SqlConnection connection = instance.CreateConnection())
+                {
+                    connection.Open();
+                    using (SqlCommand command = new SqlCommand($"create database [{actualDBName}]", connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+                }
+                var sbuilder = instance.CreateConnectionStringBuilder();
+                sbuilder.SetInitialCatalogName(actualDBName);
+
+                options.ClusterConfiguration.AddSimpleSQLStorageProvider(dbName, sbuilder.ConnectionString, "true");
+            }
+
+
+
+
             //options.ClusterConfiguration.Globals.ClientDropTimeout = TimeSpan.FromSeconds(5);
             //options.ClusterConfiguration.Defaults.DefaultTraceLevel = Orleans.Runtime.Severity.Warning;
-
-            options.ClusterConfiguration.AddSimpleSQLStorageProvider("basic",
-                string.Format(@"Data Source=(localdb)\MSSQLLocalDB;AttachDbFilename={0};Trusted_Connection=Yes", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "basic.mdf")), "true");
-
-            options.ClusterConfiguration.AddSimpleSQLStorageProvider("SimpleSQLStore",
-                string.Format(@"Data Source=(localdb)\MSSQLLocalDB;AttachDbFilename={0};Trusted_Connection=Yes", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SimpleSQLStore.mdf")), "true");
             //options.ClientConfiguration.DefaultTraceLevel = Orleans.Runtime.Severity.Warning;
 
             return new TestCluster(options);
@@ -174,6 +210,13 @@ namespace SimpleSQLServerStorage.Tests
             Assert.Equal(thing4, await grain.GetThing4());
             var res = await grain.GetThings1();
             Assert.Equal(things, res.ToList());
+
+
+            await grain.SetIpAddr(IPAddress.Any);
+            var ipaddr = await grain.GetIpAddr();
+            Assert.Equal(IPAddress.Any, ipaddr);
+
+
         }
 
         [Fact]
