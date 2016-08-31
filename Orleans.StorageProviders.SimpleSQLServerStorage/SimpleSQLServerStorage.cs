@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using System.Data.Entity;
 using Orleans.Serialization;
 using System.Data.Entity.Migrations;
+using System.Globalization;
+using System.Text;
 
 namespace Orleans.StorageProviders.SimpleSQLServerStorage
 {
@@ -128,13 +130,17 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                         default:
                             break;
                     }
-                }
 
-                grainState.ETag = Guid.NewGuid().ToString();
+                    var etagText = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => s.Etag).SingleOrDefaultAsync();
+                    if (!string.IsNullOrEmpty(etagText))
+                    {
+                        grainState.ETag = etagText;
+                    }
+                }
             }
             catch (Exception ex)
             {
-                Log.Error((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvider_ReadError,
+                Log.Error((int)SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvider_ReadError,
                     $"Error reading: GrainType={grainType} Grainid={grainReference} ETag={grainState.ETag} from DataSource={this.sqlconnBuilder.DataSource + "." + this.sqlconnBuilder.InitialCatalog}",
                     ex);
                 throw;
@@ -143,7 +149,9 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
         }
 
 
-        /// <summary> Write state data function for this storage provider. </summary>
+        /// <summary> 
+        /// Write state data function for this storage provider.
+        /// </summary>
         /// <see cref="IStorageProvider#WriteStateAsync"/>
         public async Task WriteStateAsync(string grainType, GrainReference grainReference, IGrainState grainState)
         {
@@ -155,19 +163,45 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
             }
             try
             {
+                using (var db = new KeyValueDbContext(this.sqlconnBuilder.ConnectionString))
+                {
+                    var etagText = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => s.Etag).SingleOrDefaultAsync();
+                    if (string.IsNullOrEmpty(etagText)||string.IsNullOrEmpty(grainState.ETag))
+                    {
+                        //no etag present
+                        //allow the write
+                    }
+                    else
+                    {
+                        if (grainState.ETag.Equals(etagText))
+                        {
+                            //all is well in the world, the updating record matches the etag of the target record.
+                            //allow the write
+                        }
+                        else
+                        {
+                            //mismatch , throw invalid etag
+                            throw new InconsistentStateException("etag mismatch", etagText, grainState.ETag);
+                        }
+                    }
+                }
+
                 var data = grainState.State;
 
                 byte[] payload = null;
                 string jsonpayload = string.Empty;
+                string eTagForWrite = string.Empty;
 
                 if (this.useJsonOrBinaryFormat != StorageFormatEnum.Json)
                 {
                     payload = SerializationManager.SerializeToByteArray(data);
+                    eTagForWrite = GenerateETag(payload);
                 }
 
                 if (this.useJsonOrBinaryFormat == StorageFormatEnum.Json || this.useJsonOrBinaryFormat == StorageFormatEnum.Both)
                 {
                     jsonpayload = JsonConvert.SerializeObject(data, jsonSettings);
+                    eTagForWrite = GenerateETag(jsonpayload);
                 }
 
                 //we really need to be writing an Etag to the db as well
@@ -176,6 +210,7 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                     JsonContext = jsonpayload,
                     BinaryContent = payload,
                     GrainKeyId = primaryKey,
+                    Etag = eTagForWrite
                 };
 
                 using (var db = new KeyValueDbContext(this.sqlconnBuilder.ConnectionString))
@@ -192,6 +227,21 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                 throw;
             }
         }
+
+        private string GenerateETag(string jsonpayload)
+        {
+            var md5Hasher = System.Security.Cryptography.MD5.Create();
+            byte[] data = md5Hasher.ComputeHash(Encoding.Default.GetBytes(jsonpayload));
+            return BitConverter.ToString(data);
+        }
+
+        private string GenerateETag(byte[] payload)
+        {
+            var md5Hasher = System.Security.Cryptography.MD5.Create();
+            byte[] data = md5Hasher.ComputeHash(payload);
+            return BitConverter.ToString(data);
+        }
+
 
         /// <summary> Clear state data function for this storage provider. </summary>
         /// <remarks>
@@ -226,5 +276,28 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                 throw;
             }
         }
+
+
+        private void ValidateEtag(string currentETag, string receivedEtag, string grainStoreKey, string operation)
+        {
+            // if we have no current etag, we will accept the users data.
+            // This is a mitigation for when the memory storage grain is lost due to silo crash.
+            if (currentETag == null)
+                return;
+
+            // if this is our first write, and we have an empty etag, we're good
+            if (string.IsNullOrEmpty(currentETag) && receivedEtag == null)
+                return;
+
+            // if current state and new state have matching etags, we're good
+            if (receivedEtag == currentETag)
+                return;
+
+            // else we have an etag mismatch
+            string error = $"Etag mismatch during {operation} for grain {grainStoreKey}: Expected = {currentETag ?? "null"} Received = {receivedEtag}";
+            Log.Warn(0, error);
+            throw new InconsistentStateException(error);
+        }
+
     }
 }
