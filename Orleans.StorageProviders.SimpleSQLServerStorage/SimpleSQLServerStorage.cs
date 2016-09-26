@@ -50,6 +50,8 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                 Name = name;
                 this.jsonSettings = SerializationManager.UpdateSerializerSettings(SerializationManager.GetDefaultJsonSerializerSettings(), config);
 
+                this.jsonSettings.DefaultValueHandling = DefaultValueHandling.Include;
+
                 if (!config.Properties.ContainsKey(CONNECTION_STRING) || string.IsNullOrWhiteSpace(config.Properties[CONNECTION_STRING]))
                 {
                     throw new BadProviderConfigException($"Specify a value for: {CONNECTION_STRING}");
