@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using System.Data.Entity;
 using Orleans.Serialization;
 using System.Data.Entity.Migrations;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace Orleans.StorageProviders.SimpleSQLServerStorage
 {
@@ -107,30 +109,30 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                         case StorageFormatEnum.Binary:
                         case StorageFormatEnum.Both:
                             {
-                                var value = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => s.BinaryContent).SingleOrDefaultAsync();
+                                var value = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => new { s.BinaryContent, s.ETag } ).SingleOrDefaultAsync();
                                 if (value != null)
                                 {
                                     //data = SerializationManager.DeserializeFromByteArray<Dictionary<string, object>>(value);
-                                    grainState.State = SerializationManager.DeserializeFromByteArray<object>(value);
+                                    grainState.State = SerializationManager.DeserializeFromByteArray<object>(value.BinaryContent);
+									grainState.ETag = value.ETag;
                                 }
-                            }
-                            break;
+							}
+							break;
                         case StorageFormatEnum.Json:
                             {
-                                var value = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => s.JsonContext).SingleOrDefaultAsync();
-                                if (!string.IsNullOrEmpty(value))
+                                var value = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => new { s.JsonContext, s.ETag }).SingleOrDefaultAsync();
+                                if (value != null && !string.IsNullOrEmpty(value.JsonContext))
                                 {
                                     //data = JsonConvert.DeserializeObject<Dictionary<string, object>>(value, jsonSettings);
-                                    grainState.State = JsonConvert.DeserializeObject(value, grainState.State.GetType(), jsonSettings);
-                                }
-                            }
-                            break;
+                                    grainState.State = JsonConvert.DeserializeObject(value.JsonContext, grainState.State.GetType(), jsonSettings);
+									grainState.ETag = value.ETag;
+								}
+							}
+							break;
                         default:
                             break;
                     }
                 }
-
-                grainState.ETag = Guid.NewGuid().ToString();
             }
             catch (Exception ex)
             {
@@ -168,20 +170,33 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                 if (this.useJsonOrBinaryFormat == StorageFormatEnum.Json || this.useJsonOrBinaryFormat == StorageFormatEnum.Both)
                 {
                     jsonpayload = JsonConvert.SerializeObject(data, jsonSettings);
-                }
+				}
 
-                //we really need to be writing an Etag to the db as well
-                var kvb = new KeyValueStore()
+				var kvb = new KeyValueStore()
                 {
                     JsonContext = jsonpayload,
                     BinaryContent = payload,
                     GrainKeyId = primaryKey,
-                };
+					ETag = Guid.NewGuid().ToString()
+				};
 
                 using (var db = new KeyValueDbContext(this.sqlconnBuilder.ConnectionString))
                 {
+					if(grainState.ETag != null)
+					{
+						var value = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => s.ETag).SingleOrDefaultAsync();
+						if(value != null && value != grainState.ETag)
+						{
+							string error = $"Etag mismatch during WriteStateAsync for grain {primaryKey}: Expected = {value ?? "null"} Received = {grainState.ETag}";
+							Log.Error(0, error);
+							throw new InconsistentStateException(error);
+						}
+					}
+
                     db.Set<KeyValueStore>().AddOrUpdate(kvb);
-                    await db.SaveChangesAsync();
+
+					await db.SaveChangesAsync();
+
                 }
             }
             catch (Exception ex)
@@ -193,11 +208,11 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
             }
         }
 
-        /// <summary> Clear state data function for this storage provider. </summary>
-        /// <remarks>
-        /// </remarks>
-        /// <see cref="IStorageProvider#ClearStateAsync"/>
-        public async Task ClearStateAsync(string grainType, GrainReference grainReference, IGrainState grainState)
+		/// <summary> Clear state data function for this storage provider. </summary>
+		/// <remarks>
+		/// </remarks>
+		/// <see cref="IStorageProvider#ClearStateAsync"/>
+		public async Task ClearStateAsync(string grainType, GrainReference grainReference, IGrainState grainState)
         {
             var primaryKey = grainReference.ToKeyString();
 
@@ -216,6 +231,7 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                     await db.SaveChangesAsync();
                 }
 
+				grainState.ETag = null;
             }
             catch (Exception ex)
             {
