@@ -18,6 +18,7 @@ using Orleans.StorageProviders.SimpleSQLServerStorage;
 using System.Data.SqlLocalDb;
 using System.Data.SqlClient;
 using System.Net;
+using Orleans.Storage;
 
 namespace SimpleSQLServerStorage.Tests
 {
@@ -508,7 +509,7 @@ namespace SimpleSQLServerStorage.Tests
             Assert.Equal(2, val); // "Value after Re-Read");
         }
 
-
+        #region perf
         [Fact]
         public void Persistence_Perf_Activate()
         {
@@ -548,19 +549,64 @@ namespace SimpleSQLServerStorage.Tests
             RunPerfTest(n, testName + "--ReRead", target,
                 grainSimpleSQLStore => grainSimpleSQLStore.DoRead());
         }
+        #endregion
 
 
-        //[Fact]
-        //public void Persistence_Silo_StorageProvider_SimpleSQL(Type providerType)
-        //{
-        //    List<SiloHandle> silos = testingHost.GetActiveSilos().ToList();
-        //    foreach (var silo in silos)
-        //    {
-        //        string provider = providerType.FullName;
-        //        List<string> providers = silo.Silo.TestHook.GetStorageProviderNames().ToList();
-        //        Assert.IsTrue(providers.Contains(provider), "No storage provider found: {0}", provider);
-        //    }
-        //}
+
+        [Fact]
+        public async Task EnforcesEtagsTest()
+        {
+            this.HostedCluster.ClusterConfiguration.ApplyToAllNodes(o => o.DefaultTraceLevel = Severity.Verbose3);
+            this.HostedCluster.ClusterConfiguration.ApplyToAllNodes(o => o.TraceToConsole = true);
+
+            var rnd = new Random();
+            var grainKey = rnd.Next();
+            var testgrain = this.HostedCluster.GrainFactory.GetGrain<IStateTestGrain>(grainKey);
+
+            List<Task> tasks = new List<Task>();
+
+            //notice we are not waiting
+            var r1 = rnd.Next();
+            var r2 = rnd.Next();
+            for (int i = 0; i < 100; i++)
+            {
+                var val = await testgrain.GetThing1();
+
+                var tr1 = testgrain.SetThing1(r1);
+                tasks.Add(tr1);
+            }
+
+            await testgrain.SetThing1(r2);
+
+            var ansR2 = await testgrain.GetThing1();
+
+            await Task.WhenAll(tasks);
+
+            Assert.Equal(r2, ansR2);
+
+        }
+
+        [Fact]
+        public async Task EtagFailureTest()
+        {
+            var rnd = new Random();
+            var grainKey = rnd.Next();
+            var testgrain = this.HostedCluster.GrainFactory.GetGrain<IStateTestGrain>(grainKey);
+
+            var r2 = rnd.Next();
+            await testgrain.SetThing1(r2);
+            var x = await testgrain.GetThing1();
+
+            var testSameGrain = this.HostedCluster.GrainFactory.GetGrain<IStateTestGrain>(grainKey);
+
+            var r1 = rnd.Next();
+            await testSameGrain.SetThing1(r1);
+            await Assert.ThrowsAsync<InconsistentStateException>(async ()=>await testSameGrain.SetThing1(r2));
+
+            var output = await testSameGrain.GetThing1();
+
+        }
+
 
         #region Utility functions
         // ---------- Utility functions ----------
@@ -587,7 +633,7 @@ namespace SimpleSQLServerStorage.Tests
 
                 if (elapsed > target.Multiply(2.0 * timingFactor))
                 {
-                    Assert.True(false,msg);
+                    Assert.True(false, msg);
                 }
                 else
                 {
@@ -664,22 +710,46 @@ namespace SimpleSQLServerStorage.Tests
             return multiple > 1.0 ? multiple : 1.0;
         }
 
+
+
+        [Serializable]
+        private class TestGrainState : IGrainState
+        {
+            public static IGrainState CreateRandom()
+            {
+                return new TestGrainState
+                {
+                    State = random.Next(),
+                    ETag = random.Next().ToString()
+                };
+            }
+
+            public static IGrainState CreateWithEtag(string eTag)
+            {
+                return new TestGrainState
+                {
+                    State = random.Next(),
+                    ETag = eTag
+                };
+            }
+
+            public object State { get; set; }
+            public string ETag { get; set; }
+        }
     }
 
 
 
     public static class ExtensionStuff
     {
-
-
         public static TimeSpan Multiply(this TimeSpan timeSpan, double value)
         {
             double ticksD = checked((double) timeSpan.Ticks * value);
             long ticks = checked((long) ticksD);
             return TimeSpan.FromTicks(ticks);
         }
-
-
-
     }
+
+
+
 }
