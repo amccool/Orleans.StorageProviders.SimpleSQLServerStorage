@@ -11,6 +11,8 @@ using Orleans.Serialization;
 using System.Data.Entity.Migrations;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
+using System.Security.Cryptography;
 
 namespace Orleans.StorageProviders.SimpleSQLServerStorage
 {
@@ -65,7 +67,7 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                 sqlCon.Close();
 
                 //initialize to use the default of JSON storage (this is to provide backwards compatiblity with previous version
-                useJsonOrBinaryFormat = StorageFormatEnum.Binary;
+                useJsonOrBinaryFormat = StorageFormatEnum.Json;
 
                 if (config.Properties.ContainsKey(USE_JSON_FORMAT_PROPERTY))
                 {
@@ -85,8 +87,10 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
 
         /// <summary> Shutdown this storage provider. </summary>
         /// <see cref="IStorageProvider#Close"/>
-        public async Task Close()
-        { }
+        public Task Close()
+        {
+            return TaskDone.Done;
+        }
 
         /// <summary> Read state data function for this storage provider. </summary>
         /// <see cref="IStorageProvider#ReadStateAsync"/>
@@ -107,12 +111,10 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                     switch (this.useJsonOrBinaryFormat)
                     {
                         case StorageFormatEnum.Binary:
-                        case StorageFormatEnum.Both:
                             {
-                                var value = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => new { s.BinaryContent, s.ETag } ).SingleOrDefaultAsync();
+                                var value = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => new { s.BinaryContent, s.ETag }).SingleOrDefaultAsync();
                                 if (value != null)
                                 {
-                                    //data = SerializationManager.DeserializeFromByteArray<Dictionary<string, object>>(value);
                                     grainState.State = SerializationManager.DeserializeFromByteArray<object>(value.BinaryContent);
 									grainState.ETag = value.ETag;
 									if(grainState.State is GrainState)
@@ -121,18 +123,20 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
 							}
 							break;
                         case StorageFormatEnum.Json:
+                        case StorageFormatEnum.Both:
                             {
-                                var value = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => new { s.JsonContext, s.ETag }).SingleOrDefaultAsync();
+                                var value = await db.KeyValues
+                        .Where(s => s.GrainKeyId.Equals(primaryKey))
+                        .Select(s => new { s.JsonContext, s.ETag }).SingleOrDefaultAsync();
                                 if (value != null && !string.IsNullOrEmpty(value.JsonContext))
                                 {
-                                    //data = JsonConvert.DeserializeObject<Dictionary<string, object>>(value, jsonSettings);
                                     grainState.State = JsonConvert.DeserializeObject(value.JsonContext, grainState.State.GetType(), jsonSettings);
 									grainState.ETag = value.ETag;
 									if(grainState.State is GrainState)
 										((GrainState)grainState.State).Etag = value.ETag;
 								}
-							}
-							break;
+                            }
+                            break;
                         default:
                             break;
                     }
@@ -184,8 +188,8 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                     JsonContext = jsonpayload,
                     BinaryContent = payload,
                     GrainKeyId = primaryKey,
-					ETag = Guid.NewGuid().ToString()
-				};
+					ETag = String.IsNullOrEmpty(jsonpayload) ? payload.CalculateMD5Hash(): jsonpayload.CalculateMD5Hash()
+                };
 
                 using (var db = new KeyValueDbContext(this.sqlconnBuilder.ConnectionString))
                 {
@@ -256,5 +260,41 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                 throw;
             }
         }
+    }
+
+    public static class ProviderExtenstions
+    {
+        public static string CalculateMD5Hash(this string input)
+        {
+            // step 1, calculate MD5 hash from input
+            MD5 md5 = System.Security.Cryptography.MD5.Create();
+            byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes(input);
+            byte[] hash = md5.ComputeHash(inputBytes);
+            // step 2, convert byte array to hex string
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < hash.Length; i++)
+            {
+                sb.Append(hash[i].ToString("X2"));
+            }
+
+            return sb.ToString();
+        }
+
+        public static string CalculateMD5Hash(this byte[] inputBytes)
+        {
+            // step 1, calculate MD5 hash from input
+            MD5 md5 = System.Security.Cryptography.MD5.Create();
+            byte[] hash = md5.ComputeHash(inputBytes);
+            // step 2, convert byte array to hex string
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < hash.Length; i++)
+            {
+                sb.Append(hash[i].ToString("X2"));
+            }
+
+            return sb.ToString();
+        }
+
+
     }
 }
