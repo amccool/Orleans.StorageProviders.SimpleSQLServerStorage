@@ -601,11 +601,35 @@ namespace SimpleSQLServerStorage.Tests
 
             var r1 = rnd.Next();
             await testSameGrain.SetThing1(r1);
-            await Assert.ThrowsAsync<InconsistentStateException>(async ()=>await testSameGrain.SetThing1(r2));
+            //doing a 2 WriteStateAsync in a row, without a read causes this problem
+            Exception ex = await Assert.ThrowsAsync<OrleansException>(async ()=>await testSameGrain.SetThing1(r2));
 
-            var output = await testSameGrain.GetThing1();
-
+            Assert.IsType<InconsistentStateException>(ex.InnerException);
         }
+
+
+        [Fact]
+        public async Task EtagSuccessTest()
+        {
+            var rnd = new Random();
+            var grainKey = rnd.Next();
+            var testgrain = this.HostedCluster.GrainFactory.GetGrain<IStateTestGrain>(grainKey);
+
+            var r2 = rnd.Next();
+            await testgrain.SetThing1(r2);
+            var x = await testgrain.GetThing1();
+
+            var r1 = rnd.Next();
+            await testgrain.SetThing1(r1);
+            var output = await testgrain.GetThing1();
+
+            Assert.Equal(r1, output);
+        }
+
+
+
+
+
 
 
         #region Utility functions
