@@ -587,7 +587,7 @@ namespace SimpleSQLServerStorage.Tests
         }
 
         [Fact]
-        public async Task EtagFailureTest()
+        public async Task EtagHashingFailureTest()
         {
             var rnd = new Random();
             var grainKey = rnd.Next();
@@ -606,6 +606,26 @@ namespace SimpleSQLServerStorage.Tests
 
             Assert.IsType<InconsistentStateException>(ex.InnerException);
         }
+
+        [Fact]
+        public async Task EtagSameHashNonFailureTest()
+        {
+            var rnd = new Random();
+            var grainKey = rnd.Next();
+            var testgrain = this.HostedCluster.GrainFactory.GetGrain<IStateTestGrain>(grainKey);
+
+            var r2 = rnd.Next();
+            await testgrain.SetThing1(r2);
+            var x = await testgrain.GetThing1();
+
+            //var testSameGrain = this.HostedCluster.GrainFactory.GetGrain<IStateTestGrain>(grainKey);
+
+            var r1 = rnd.Next();
+            await testgrain.SetThing1(r1);
+            await testgrain.SetThing1(r1);
+        }
+
+
 
 
         [Fact]
