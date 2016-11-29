@@ -16,8 +16,10 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
         public byte[] BinaryContent { get; set; }
         [MaxLength]
         public string JsonContext { get; set; }
+		[MaxLength(100)]
+		public string ETag { get; set; }
 
-        //public int StorageNameId { get; set; }
-        //public virtual StorageName StorageName { get; set; }
-    }
+		//public int StorageNameId { get; set; }
+		//public virtual StorageName StorageName { get; set; }
+	}
 }
