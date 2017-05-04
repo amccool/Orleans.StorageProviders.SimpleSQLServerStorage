@@ -22,6 +22,6 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
         SimpleSQLServerProvider_InitProvider             = SimpleSQLServerProviderBase + 9,
         SimpleSQLServerProvider_ParamConnectionString    = SimpleSQLServerProviderBase + 10,
         SimpleSQLServerProvider_ReadError                = SimpleSQLServerProviderBase + 11,
-        SimpleSQLServerStorageProvider_ClearingData = 400111,
+        SimpleSQLServerProvider_ClearingData             = SimpleSQLServerProviderBase + 12,
     }
 }

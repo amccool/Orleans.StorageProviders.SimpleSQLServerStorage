@@ -102,7 +102,8 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
 
             try
             {
-                using (var db = new KeyValueDbContext(this.sqlconnBuilder.ConnectionString))
+                using(var conn = new SqlConnection(this.sqlconnBuilder.ConnectionString))
+                using (var db = new KeyValueDbContext(conn, true))
                 {
                     switch (this.useJsonOrBinaryFormat)
                     {
@@ -187,15 +188,16 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
 					ETag = Guid.NewGuid().ToString()
 				};
 
-                using (var db = new KeyValueDbContext(this.sqlconnBuilder.ConnectionString))
+                using (var conn = new SqlConnection(this.sqlconnBuilder.ConnectionString))
+                using (var db = new KeyValueDbContext(conn, true))
                 {
-					if(grainState.ETag != null)
+                    if (grainState.ETag != null)
 					{
 						var value = await db.KeyValues.Where(s => s.GrainKeyId.Equals(primaryKey)).Select(s => s.ETag).SingleOrDefaultAsync();
 						if(value != null && value != grainState.ETag)
 						{
-							string error = $"Etag mismatch during WriteStateAsync for grain {primaryKey}: Expected = {value ?? "null"} Received = {grainState.ETag}";
-							Log.Error(0, error);
+							string error = $"Error writing Etag mismatch: GrainType={grainType} GrainId={grainReference} ETag={grainState.ETag}  Expected = {value ?? "null"} Received = {grainState.ETag}";
+							Log.Error((int)SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvider_WriteError, error);
 							throw new InconsistentStateException(error);
 						}
 					}
@@ -231,11 +233,13 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
             {
                 if (Log.IsVerbose3)
                 {
-                    Log.Verbose3((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerStorageProvider_ClearingData,
+                    Log.Verbose3((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvider_ClearingData,
                         $"Clearing: GrainType={grainType} Pk={primaryKey} Grainid={grainReference} ETag={grainState.ETag} from DataSource={this.sqlconnBuilder.DataSource} Catalog={this.sqlconnBuilder.InitialCatalog}");
                 }
                 var entity = new KeyValueStore() { GrainKeyId = primaryKey };
-                using (var db = new KeyValueDbContext(this.sqlconnBuilder.ConnectionString))
+
+                using (var conn = new SqlConnection(this.sqlconnBuilder.ConnectionString))
+                using (var db = new KeyValueDbContext(conn, true))
                 {
                     db.KeyValues.Attach(entity);
                     db.KeyValues.Remove(entity);

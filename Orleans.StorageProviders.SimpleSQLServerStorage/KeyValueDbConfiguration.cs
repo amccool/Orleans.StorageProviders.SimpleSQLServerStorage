@@ -1,18 +1,21 @@
-﻿using System.Data.Entity;
+﻿using System;
+using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 using System.Data.Entity.SqlServer;
 
 namespace Orleans.StorageProviders.SimpleSQLServerStorage
 {
-    internal class KeyValueDbConfiguration : DbConfiguration
+    public class KeyValueDbConfiguration : DbConfiguration
     {
-        public KeyValueDbConfiguration(): base()
+        public KeyValueDbConfiguration()
         {
-            SetProviderServices(
+            this.SetProviderServices(
                 SqlProviderServices.ProviderInvariantName,            
                 SqlProviderServices.Instance);
 
-            SetDefaultConnectionFactory(new System.Data.Entity.Infrastructure.SqlConnectionFactory());
+            this.SetExecutionStrategy(SqlProviderServices.ProviderInvariantName, () => new SqlAzureExecutionStrategy(2, TimeSpan.FromMilliseconds(100)));
+
+            this.SetDefaultConnectionFactory(new SqlConnectionFactory());
         }
     }
 }
