@@ -46,6 +46,9 @@
       <HintPath>..\..\packages\Microsoft.Extensions.DependencyInjection.Abstractions.1.0.0\lib\netstandard1.0\Microsoft.Extensions.DependencyInjection.Abstractions.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Microsoft.VisualStudio.QualityTools.UnitTestFramework, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
@@ -107,13 +110,13 @@
     <Otherwise />
   </Choose>
   <ItemGroup>
-    <Compile Include="BaseTestClusterFixture.cs" />
-    <Compile Include="OrleansTestingBase.cs" />
+    <Compile Include="Harness\BaseTestClusterFixture.cs" />
+    <Compile Include="Harness\OrleansTestingBase.cs" />
     <Compile Include="PubSubStoreTests.cs" />
     <Compile Include="GrainStorageTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="TestClusterPerTestInitializeAfterConstructor.cs" />
-    <Compile Include="TestClusterPerTest.cs" />
+    <Compile Include="Harness\TestClusterPerTestInitializeAfterConstructor.cs" />
+    <Compile Include="Harness\TestClusterPerTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="basic.mdf" />
