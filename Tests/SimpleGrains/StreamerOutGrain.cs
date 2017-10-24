@@ -22,7 +22,7 @@ namespace SimpleGrains
             logger = base.GetLogger("StreamerOutGrain " + base.IdentityString);
             logger.Info("OnActivateAsync");
             numProducedItems = 0;
-            return TaskDone.Done;
+            return Task.CompletedTask;
         }
 
 
@@ -31,13 +31,13 @@ namespace SimpleGrains
             logger.Info("BecomeProducer");
             IStreamProvider streamProvider = base.GetStreamProvider(providerToUse);
             producer = streamProvider.GetStream<int>(streamId, streamNamespace);
-            return TaskDone.Done;
+            return Task.CompletedTask;
         }
 
         public Task ClearNumberProduced()
         {
             numProducedItems = 0;
-            return TaskDone.Done;
+            return Task.CompletedTask;
         }
 
         public Task<int> GetNumberProduced()
@@ -55,7 +55,7 @@ namespace SimpleGrains
         {
             logger.Info("StartPeriodicProducing");
             producerTimer = base.RegisterTimer(TimerCallback, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(10));
-            return TaskDone.Done;
+            return Task.CompletedTask;
         }
 
         public Task StopPeriodicProducing()
@@ -63,12 +63,12 @@ namespace SimpleGrains
             logger.Info("StopPeriodicProducing");
             producerTimer.Dispose();
             producerTimer = null;
-            return TaskDone.Done;
+            return Task.CompletedTask;
         }
 
         private Task TimerCallback(object state)
         {
-            return producerTimer != null ? Fire() : TaskDone.Done;
+            return producerTimer != null ? Fire() : Task.CompletedTask;
         }
 
         private async Task Fire([CallerMemberName] string caller = null)
@@ -82,7 +82,7 @@ namespace SimpleGrains
         public override Task OnDeactivateAsync()
         {
             logger.Info("OnDeactivateAsync");
-            return TaskDone.Done;
+            return Task.CompletedTask;
         }
 
     }

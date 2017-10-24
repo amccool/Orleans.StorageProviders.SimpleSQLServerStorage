@@ -11,6 +11,7 @@ using Orleans.Serialization;
 using System.Data.Entity.Migrations;
 using System.Collections;
 using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Orleans.StorageProviders.SimpleSQLServerStorage
 {
@@ -31,7 +32,7 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
         private Newtonsoft.Json.JsonSerializerSettings jsonSettings;
         private StorageFormatEnum useJsonOrBinaryFormat;
         private bool throwOnDeserializeError;
-
+        private SerializationManager _serializationManager;
 
         /// <summary> Name of this storage provider instance. </summary>
         /// <see cref="IProvider#Name"/>
@@ -52,7 +53,9 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
             try
             {
                 Name = name;
-                this.jsonSettings = OrleansJsonSerializer.UpdateSerializerSettings(OrleansJsonSerializer.GetDefaultSerializerSettings(), config);
+
+                _serializationManager = providerRuntime.ServiceProvider.GetRequiredService<SerializationManager>();
+                this.jsonSettings = OrleansJsonSerializer.UpdateSerializerSettings(OrleansJsonSerializer.GetDefaultSerializerSettings(_serializationManager, providerRuntime.GrainFactory), config);
 
                 if (!config.Properties.ContainsKey(CONNECTION_STRING) || string.IsNullOrWhiteSpace(config.Properties[CONNECTION_STRING]))
                 {
@@ -122,7 +125,7 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                                 if (value != null)
                                 {
                                     //data = SerializationManager.DeserializeFromByteArray<Dictionary<string, object>>(value);
-                                    grainState.State = SerializationManager.DeserializeFromByteArray<object>(value.BinaryContent);
+                                    grainState.State = _serializationManager.DeserializeFromByteArray<object>(value.BinaryContent);
 									grainState.ETag = value.ETag;
 									if(grainState.State is GrainState)
 										((GrainState)grainState.State).Etag = value.ETag;
@@ -186,7 +189,7 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
 
                 if (this.useJsonOrBinaryFormat != StorageFormatEnum.Json)
                 {
-                    payload = SerializationManager.SerializeToByteArray(data);
+                    payload = _serializationManager.SerializeToByteArray(data);
                 }
 
                 if (this.useJsonOrBinaryFormat == StorageFormatEnum.Json || this.useJsonOrBinaryFormat == StorageFormatEnum.Both)

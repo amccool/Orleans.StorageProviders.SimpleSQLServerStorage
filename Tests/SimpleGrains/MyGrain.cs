@@ -90,7 +90,7 @@ namespace SimpleGrains
 		public Task BreakEtagForUnitTestPurposes()
 		{
 			State.Etag = Guid.NewGuid().ToString();
-			return TaskDone.Done;
+			return Task.CompletedTask;
 		}
 	}
 }

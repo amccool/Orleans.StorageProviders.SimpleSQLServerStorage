@@ -130,6 +130,7 @@ namespace SimpleSQLServerStorage.Tests
         public override TestCluster CreateTestCluster()
         {
             var options = new TestClusterOptions();
+            options.ExtendedFallbackOptions.TraceToConsole = true;
 
             foreach (var item in dbNames)
             {
@@ -166,7 +167,8 @@ namespace SimpleSQLServerStorage.Tests
             var rndId1 = rnd.Next();
             var rndId2 = rnd.Next();
 
-
+            if(!GrainClient.IsInitialized)
+                GrainClient.Initialize(HostedCluster.ClientConfiguration);
 
             // insert your grain test code here
             var grain = this.HostedCluster.GrainFactory.GetGrain<IMyGrain>(rndId1);
@@ -253,8 +255,7 @@ namespace SimpleSQLServerStorage.Tests
 			string etag1 = await g.GetEtag();
 			await g.BreakEtagForUnitTestPurposes();
 			string etag2 = await g.GetEtag();
-			Exception ex = await Assert.ThrowsAsync<OrleansException>(async () => await g.SaveSomething(2, "ff", guid1, dateTime1, new int[] { 1, 2, 3, 4, 5 }));
-			Assert.IsType(typeof(InconsistentStateException), ex.InnerException);
+			Exception ex = await Assert.ThrowsAsync<InconsistentStateException>(async () => await g.SaveSomething(2, "ff", guid1, dateTime1, new int[] { 1, 2, 3, 4, 5 }));
 		}
 		
 
@@ -311,6 +312,10 @@ namespace SimpleSQLServerStorage.Tests
         public async Task SimpleSQLStore_Delete()
         {
             Guid id = Guid.NewGuid();
+
+            if(!GrainClient.IsInitialized)
+                GrainClient.Initialize(HostedCluster.ClientConfiguration);
+
             ISimpleSQLStorageTestGrain grain = GrainClient.GrainFactory.GetGrain<ISimpleSQLStorageTestGrain>(id);
 
             await grain.DoWrite(1);
@@ -330,6 +335,10 @@ namespace SimpleSQLServerStorage.Tests
         public async Task Grain_SimpleSQLStore_Read()
         {
             Guid id = Guid.NewGuid();
+
+            if(!GrainClient.IsInitialized)
+                GrainClient.Initialize(HostedCluster.ClientConfiguration);
+
             ISimpleSQLStorageTestGrain grain = GrainClient.GrainFactory.GetGrain<ISimpleSQLStorageTestGrain>(id);
 
             int val = await grain.GetValue();
@@ -341,6 +350,8 @@ namespace SimpleSQLServerStorage.Tests
         public async Task Grain_GuidKey_SimpleSQLStore_Read_Write()
         {
             Guid id = Guid.NewGuid();
+            if(!GrainClient.IsInitialized)
+                GrainClient.Initialize(HostedCluster.ClientConfiguration);
             ISimpleSQLStorageTestGrain grain = GrainClient.GrainFactory.GetGrain<ISimpleSQLStorageTestGrain>(id);
 
             int val = await grain.GetValue();
@@ -364,6 +375,8 @@ namespace SimpleSQLServerStorage.Tests
         public async Task Grain_LongKey_SimpleSQLStore_Read_Write()
         {
             long id = random.Next();
+            if(!GrainClient.IsInitialized)
+                GrainClient.Initialize(HostedCluster.ClientConfiguration);
             ISimpleSQLStorageTestGrain_LongKey grain = GrainClient.GrainFactory.GetGrain<ISimpleSQLStorageTestGrain_LongKey>(id);
 
             int val = await grain.GetValue();
@@ -389,6 +402,8 @@ namespace SimpleSQLServerStorage.Tests
             long id = random.Next();
             string extKey = random.Next().ToString(CultureInfo.InvariantCulture);
 
+            if(!GrainClient.IsInitialized)
+                GrainClient.Initialize(HostedCluster.ClientConfiguration);
             ISimpleSQLStorageTestGrain_LongExtendedKey
                 grain = GrainClient.GrainFactory.GetGrain<ISimpleSQLStorageTestGrain_LongExtendedKey>(id, extKey, null);
 
@@ -420,6 +435,9 @@ namespace SimpleSQLServerStorage.Tests
             var id = Guid.NewGuid();
             string extKey = random.Next().ToString(CultureInfo.InvariantCulture);
 
+            if(!GrainClient.IsInitialized)
+                GrainClient.Initialize(HostedCluster.ClientConfiguration);
+
             ISimpleSQLStorageTestGrain_GuidExtendedKey
                 grain = GrainClient.GrainFactory.GetGrain<ISimpleSQLStorageTestGrain_GuidExtendedKey>(id, extKey, null);
 
@@ -450,6 +468,8 @@ namespace SimpleSQLServerStorage.Tests
         {
             long id = random.Next();
 
+            if(!GrainClient.IsInitialized)
+                GrainClient.Initialize(HostedCluster.ClientConfiguration);
             ISimpleSQLStorageGenericGrain<int> grain = GrainClient.GrainFactory.GetGrain<ISimpleSQLStorageGenericGrain<int>>(id);
 
             int val = await grain.GetValue();
@@ -475,6 +495,9 @@ namespace SimpleSQLServerStorage.Tests
             long id1 = random.Next();
             long id2 = id1;
             long id3 = id1;
+
+            if(!GrainClient.IsInitialized)
+                GrainClient.Initialize(HostedCluster.ClientConfiguration);
 
             ISimpleSQLStorageGenericGrain<int> grain1 = GrainClient.GrainFactory.GetGrain<ISimpleSQLStorageGenericGrain<int>>(id1);
 
@@ -544,6 +567,8 @@ namespace SimpleSQLServerStorage.Tests
             Console.WriteLine("DeploymentId={0} ServiceId={1}", this.HostedCluster.DeploymentId, this.HostedCluster.ClusterConfiguration.Globals.ServiceId);
 
             Guid id = Guid.NewGuid();
+            if(!GrainClient.IsInitialized)
+                GrainClient.Initialize(HostedCluster.ClientConfiguration);
             ISimpleSQLStorageTestGrain grain = GrainClient.GrainFactory.GetGrain<ISimpleSQLStorageTestGrain>(id);
 
             int val = await grain.GetValue();
@@ -564,6 +589,14 @@ namespace SimpleSQLServerStorage.Tests
             Assert.Equal(initialServiceId, this.HostedCluster.ClusterConfiguration.Globals.ServiceId);// "ServiceId same after restart.");
             Assert.NotEqual(initialDeploymentId, this.HostedCluster.DeploymentId);// "DeploymentId different after restart.");
 
+            //something wonky with the global GrainClient in 1.5 - probably should stop using that guy anyway but for now, hard restart it
+            if(GrainClient.IsInitialized)
+            {
+                GrainClient.Uninitialize();
+                GrainClient.Initialize(HostedCluster.ClientConfiguration);
+            }
+
+            grain = GrainClient.GrainFactory.GetGrain<ISimpleSQLStorageTestGrain>(id);
             val = await grain.GetValue();
             Assert.Equal(1, val); // "Value after Write-1");
 
@@ -637,6 +670,9 @@ namespace SimpleSQLServerStorage.Tests
             Func<ISimpleSQLStorageTestGrain, Task> actionSimpleSQL)
         {
             ISimpleSQLStorageTestGrain[] simpleSQLStoreGrains = new ISimpleSQLStorageTestGrain[n];
+
+            if(!GrainClient.IsInitialized)
+                GrainClient.Initialize(HostedCluster.ClientConfiguration);
 
             for (int i = 0; i < n; i++)
             {

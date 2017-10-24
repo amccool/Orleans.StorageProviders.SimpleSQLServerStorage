@@ -140,6 +140,8 @@ namespace SimpleSQLServerStorage.Tests
             string streamProviderName = StreamProviderName;
 
             // get producer and consumer
+            if(!GrainClient.IsInitialized)
+                GrainClient.Initialize(HostedCluster.ClientConfiguration);
             var producer = GrainClient.GrainFactory.GetGrain<IStreamerOutGrain>(Guid.NewGuid());
             var consumer = GrainClient.GrainFactory.GetGrain<IStreamerInGrain>(Guid.NewGuid());
 
@@ -224,12 +226,15 @@ namespace SimpleSQLServerStorage.Tests
 
             try
             {
+                if(!GrainClient.IsInitialized)
+                    GrainClient.Initialize(HostedCluster.ClientConfiguration);
+
                 var streamProv = GrainClient.GetStreamProvider(StreamProviderName);
                 IAsyncStream<int> stream = streamProv.GetStream<int>(strmId, "test1");
 
                 StreamSubscriptionHandle<int> handle = await stream.SubscribeAsync(
-                    (e, t) => { return TaskDone.Done; },
-                    e => { return TaskDone.Done; });
+                    (e, t) => { return Task.CompletedTask; },
+                    e => { return Task.CompletedTask; });
             }
             catch(Exception ex)
             {

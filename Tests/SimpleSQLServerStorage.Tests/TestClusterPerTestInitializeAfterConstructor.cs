@@ -12,7 +12,6 @@ namespace SimpleSQLServerStorage.Tests
     {
         static TestClusterPerTestInitializeAfterConstructor()
         {
-            TestClusterOptions.DefaultTraceToConsole = true;
         }
 
         //protected TestCluster HostedCluster { get; private set; }
@@ -36,7 +35,9 @@ namespace SimpleSQLServerStorage.Tests
 
         public virtual TestCluster CreateTestCluster()
         {
-            return new TestCluster();
+            TestClusterOptions options = new TestClusterOptions();
+            options.ExtendedFallbackOptions.TraceToConsole = true;
+            return new TestCluster(options);
         }
 
         public virtual void Dispose()

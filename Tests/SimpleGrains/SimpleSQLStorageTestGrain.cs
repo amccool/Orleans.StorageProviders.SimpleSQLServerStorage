@@ -52,7 +52,7 @@ namespace SimpleGrains
     {
         public override Task OnActivateAsync()
         {
-            return TaskDone.Done;
+            return Task.CompletedTask;
         }
 
         public Task<int> GetValue()
@@ -84,7 +84,7 @@ namespace SimpleGrains
     {
         public override Task OnActivateAsync()
         {
-            return TaskDone.Done;
+            return Task.CompletedTask;
         }
 
         public Task<T> GetValue()
@@ -116,7 +116,7 @@ namespace SimpleGrains
     {
         public override Task OnActivateAsync()
         {
-            return TaskDone.Done;
+            return Task.CompletedTask;
         }
 
         public Task<int> GetValue()

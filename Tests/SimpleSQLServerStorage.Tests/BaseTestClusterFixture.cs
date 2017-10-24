@@ -9,13 +9,11 @@ namespace SimpleSQLServerStorage.Tests
     {
         static BaseTestClusterFixture()
         {
-            TestClusterOptions.DefaultTraceToConsole = false;
         }
 
         protected BaseTestClusterFixture()
         {
             GrainClient.Uninitialize();
-            SerializationManager.InitializeForTesting();
             var testCluster = CreateTestCluster();
             if (testCluster.Primary == null)
             {
