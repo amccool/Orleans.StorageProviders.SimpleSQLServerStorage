@@ -11,6 +11,7 @@ using Orleans.Serialization;
 using System.Data.Entity.Migrations;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data.Entity.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Orleans.StorageProviders.SimpleSQLServerStorage
@@ -261,14 +262,24 @@ namespace Orleans.StorageProviders.SimpleSQLServerStorage
                     db.KeyValues.Attach(entity);
                     db.KeyValues.Remove(entity);
 
-					grainState.ETag = null;
-					if(grainState.State is GrainState)
-						((GrainState)grainState.State).Etag = null;
-
 					await db.SaveChangesAsync();
+
+					grainState.ETag = null;
+					//if(grainState.State is GrainState)
+					//	((GrainState)grainState.State).Etag = null;
                 }
 			}
-			catch (Exception ex)
+            catch (DbUpdateConcurrencyException conCurrenyEx)
+            {
+                //someone has deleted has this record already
+                Log.Error((int)SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvider_DeleteError,
+                    $"DbUpdateConcurrencyException ---- we will ignore this Error clearing: GrainType={grainType} GrainId={grainReference} ETag={grainState.ETag} in to DataSource={this.sqlconnBuilder.DataSource + "." + this.sqlconnBuilder.InitialCatalog}",
+                    conCurrenyEx);
+
+                //dont throw --- move on
+
+            }
+            catch (Exception ex)
             {
                 Log.Error((int) SimpleSQLServerProviderErrorCodes.SimpleSQLServerProvider_DeleteError,
                   $"Error clearing: GrainType={grainType} GrainId={grainReference} ETag={grainState.ETag} in to DataSource={this.sqlconnBuilder.DataSource + "." + this.sqlconnBuilder.InitialCatalog}",

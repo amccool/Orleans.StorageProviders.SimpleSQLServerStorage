@@ -10,42 +10,6 @@ using Xunit;
 
 namespace SimpleSQLServerStorage.Tests
 {
-    //public static class TestingClusterExtensions
-    //{
-    //    /// <summary>
-    //    /// Restart the default Primary and Secondary silos.
-    //    /// </summary>
-    //    public static void RestartDefaultSilos(this TestCluster testCluster, bool pickNewDeploymentId = false)
-    //    {
-    //        TestingSiloOptions primarySiloOptions = testCluster.Primary != null ? testCluster.Primary.Options : null;
-    //        TestingSiloOptions secondarySiloOptions = testCluster.Secondary != null ? testCluster.Secondary.Options : null;
-    //        // Restart as the same deployment
-    //        string deploymentId = testCluster.DeploymentId;
-
-    //        testCluster.StopDefaultSilos();
-
-    //        testCluster.DeploymentId = pickNewDeploymentId ? null : deploymentId;
-    //        if (primarySiloOptions != null)
-    //        {
-    //            primarySiloOptions.PickNewDeploymentId = pickNewDeploymentId;
-    //            testCluster.Primary = StartOrleansSilo(Silo.SiloType.Primary, primarySiloOptions, InstanceCounter++);
-    //        }
-    //        if (secondarySiloOptions != null)
-    //        {
-    //            secondarySiloOptions.PickNewDeploymentId = pickNewDeploymentId;
-    //            testCluster.Secondary = StartOrleansSilo(Silo.SiloType.Secondary, secondarySiloOptions, InstanceCounter++);
-    //        }
-
-    //        testCluster.WaitForLivenessToStabilizeAsync().Wait();
-    //        GrainClient.Initialize(testCluster.ClientConfig);
-    //    }
-
-    //}
-
-
-
-
-
     public abstract class OrleansTestingBase
     {
         protected static readonly Random random = new Random();
