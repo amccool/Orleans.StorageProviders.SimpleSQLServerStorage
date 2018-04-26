@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Orleans.Runtime.Configuration;
 
 namespace SimpleSQLServerStorage.Tests
 {
@@ -37,15 +36,7 @@ namespace SimpleSQLServerStorage.Tests
         public virtual TestCluster CreateTestCluster()
         {
             TestClusterOptions options = new TestClusterOptions();
-            options.ClusterConfiguration.ApplyToAllNodes(c => c.DefaultTraceLevel = Orleans.Runtime.Severity.Warning);
-            options.ClusterConfiguration.ApplyToAllNodes(c => c.TraceToConsole = false);
-            options.ClusterConfiguration.ApplyToAllNodes(c => c.TraceFileName = string.Empty);
-            options.ClusterConfiguration.ApplyToAllNodes(c => c.TraceFilePattern = string.Empty);
-            options.ClusterConfiguration.ApplyToAllNodes(c => c.StatisticsWriteLogStatisticsToTable = false);
-
-            options.ClientConfiguration.DefaultTraceLevel = Orleans.Runtime.Severity.Warning;
-            options.ClientConfiguration.TraceToConsole = false;
-
+            options.ExtendedFallbackOptions.TraceToConsole = true;
             return new TestCluster(options);
         }
 
